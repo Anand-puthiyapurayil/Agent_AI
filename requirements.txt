@@ -1,0 +1,13 @@
+langgraph 
+langchain 
+langchain-openai 
+sqlalchemy 
+psycopg2-binary 
+chromadb 
+sentence-transformers 
+openai 
+pandas 
+pypdf 
+python-dotenv
+fastmcp 
+langchain-mcp-adapters
