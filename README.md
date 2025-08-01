@@ -1,197 +1,215 @@
-Assesment 
+# 🧠 Intelligent Query Router with Sub-Agents
 
+This project implements an **Intelligent Query Router** that dynamically routes natural language queries to the most relevant data source—**SQL** or **RAG (Vector Store)**—based on confidence scoring. If both tools fail to confidently respond, the system rephrases and retries the query using an LLM.
 
-This project implements an Intelligent Query Router that dynamically routes natural language queries to the most relevant data source—SQL or RAG (vector store)—based on intelligent confidence scoring. If both paths fail, the system rephrases and retries the query using an LLM.
+---
 
-🚀 Project Overview 
-SQL Agent Tool: LangGraph + LangChain SQL agent wrapped as a tool, executes validated SQL queries over PostgreSQL.
+## 🚀 Project Overview
 
-RAG Agent Tool: Embedding-based document retriever (ChromaDB) wrapped as a tool, handles unstructured data (PDFs).
+### 🔧 Tools
 
+* **SQL Agent Tool**: LangGraph + LangChain SQL agent wrapped as a tool, executes validated SQL queries over PostgreSQL.
+* **RAG Agent Tool**: Embedding-based document retriever (ChromaDB), handles unstructured data (PDFs), exposed as a tool.
 
-Router Agents:
+### 🧠 Router Agents
 
-LangChain ReAct Router: A standard ReAct agent that decides between tools (SQL or RAG) using tool-calling logic.
+* **LangChain ReAct Router**: Uses tool-calling logic to choose between SQL and RAG tools.
+* **LangGraph Router**:
 
-LangGraph Router: A graph-based pipeline that:
+  * Calls both tools in parallel
+  * Scores both responses using heuristics + cross-encoder
+  * Picks the best response
+  * Optionally rephrases and retries the query
 
-Calls both SQL and RAG tools
+### 🛠️ Tool Server (MCP)
 
-Scores both responses using heuristics + cross-encoder
+Hosts both SQL and RAG tools as callable Model Context Protocol (MCP) endpoints.
 
-Picks the better result based on confidence
+---
 
-Optionally rephrases and retries the query if needed
+## 📁 Repository Structure
 
-Tool Server (MCP): Hosts both SQL and RAG agents as callable MCP tools. 
-
-
-
-📁 Repository Structure
-text
-Copy
-Edit
+```
 ├── agents/
-│   ├── rag_agent.py           # RAG retrieval agent + tool
-│   ├── prebuilt_sql_agent.py  # LangGraph SQL graph + tool
-│   
+│   ├── rag_agent.py              # RAG retrieval agent + tool
+│   ├── prebuilt_sql_agent.py     # LangGraph SQL agent as a tool
 │
 ├── MCP/
-│   ├── tools.py               # Tool loader/registrar (RAG + SQL)
-│   └── mcp_server.py          # Launches MCP tool server
+│   ├── tools.py                  # Tool loader for SQL & RAG
+│   └── mcp_server.py             # Launches MCP tool server
 │
 ├── utils/
 │   ├── Pdf_embedding.py          # Embeds PDFs to ChromaDB
-│   ├── setup_postgres.py         # Loads CSVs into PostgreSQL
-│   
+│   ├── setup_postgres.py         # Loads CSV into PostgreSQL
 │
 ├── guardrails/
-│   ├── sql_guardrails.py      # SQL row-level confidence scoring
-│   └── rag_guardrails.py      # Answer string-level scoring
+│   ├── sql_guardrails.py         # SQL confidence scoring
+│   └── rag_guardrails.py         # RAG answer scoring
 │
 ├── prompts/
-│   ├── sql_prompts.py         # Prompts for SQL generation/checking
-│   └── rag_prompts.py         # Prompts for RAG retrieval
+│   ├── sql_prompts.py            # Prompt templates for SQL
+│   └── rag_prompts.py            # Prompt templates for RAG
 │
 ├── tests/
-│   ├── test_sql.py            # Unit tests for SQL agent   ## DONT USE
-│   ├── test_rag.py            # Unit tests for RAG agent
-│   └── test_router.py         # Full router tests
+│   ├── test_sql.py               # (Do not use)
+│   ├── test_rag.py               # RAG unit tests
+│   └── test_router.py            # Router integration tests
 │
 ├── gradio_ui/
-│   └── app.py                 # Gradio UI interface for user input
+│   └── app.py                    # Gradio interface
 │
 ├── scripts/
-│   └── example_run.py         # Optional runners / experiments
+│   └── example_run.py            # Optional runner
 │
 ├── data/
-│   ├── csv_data.csv           # Structured tabular example
-│   └── pdf_docs/              # Sample PDFs for RAG
+│   ├── csv_data.csv              # Sample structured data
+│   └── pdf_docs/                 # Sample PDFs
 │
-├── chroma_db/                 # Local ChromaDB storage
-├── .env                       # API keys and DB URL config
-├── requirements.txt           # Python dependencies
-└── README.md                  # You are here
-🛠️ Setup
-Create & activate environment (Python 3.11)
+├── chroma_db/                    # Chroma vector DB (ignored)
+├── .env                          # API keys + DB config
+├── requirements.txt              # Project dependencies
+└── README.md                     # You are here
+```
 
-Conda:
+---
 
-bash
-Copy
-Edit
-conda create -n "env Name" python=3.11 -y
-conda activate venv
-venv:
+## 🛠️ Setup
 
-bash
-Copy
-Edit
+### ✅ Create Environment (Python 3.11)
+
+**With Conda:**
+
+```bash
+conda create -n agent-router python=3.11 -y
+conda activate agent-router
+```
+
+**With venv:**
+
+```bash
 python3.11 -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-Install dependencies:
+source venv/bin/activate       # Windows: venv\Scripts\activate
+```
 
-bash
-Copy
-Edit
+---
+
+### ✅ Install Dependencies
+
+```bash
 pip install -r requirements.txt
-Install optional guard-rail models (for confidence scoring):
+pip install sentence-transformers torch numpy   # (optional scoring models)
+```
 
-bash
-Copy
-Edit
-pip install sentence-transformers torch numpy
-Configure .env:
+---
 
-Create a .env file with:
+### ✅ Configure `.env`
 
-dotenv
-Copy
-Edit
+Create a `.env` file at the root:
+
+```env
 DATABASE_URL=postgresql://user:pass@localhost:5432/your_db
 OPENAI_API_KEY=sk-...
-CE_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2   
+CE_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2
+```
 
+---
 
-⚙️ Running the System
-Step 1: Host the MCP Tool Server
-This serves the SQL and RAG agents as callable tools.
+## ⚙️ Running the System
 
-bash
-Copy
-Edit
+### ▶️ Step 1: Start MCP Tool Server
+
+```bash
 python -m MCP.mcp_server
-Keep it running in one terminal.
+```
 
-Step 2: Run the Query Router
-In a new terminal, run the router interface:
+> Keep this terminal open — it hosts the tools.
 
-bash
-Copy
-Edit
+---
+
+### ▶️ Step 2: Run the Query Router
+
+```bash
 python -m agents.router
-# ❓  Enter your question: Who submitted the compliance report?
-Output will show the selected tool, answer, and confidence score.
+# Example input:
+# ❓  Who submitted the compliance report?
+```
 
-Optional: Run Gradio UI
-bash
-Copy
-Edit
+> Output includes selected tool, answer, and confidence score.
+
+---
+
+### 🖼 Optional: Launch Gradio UI
+
+```bash
 python gradio_ui/app.py
-This launches a browser-based interface to test the system interactively.
+```
 
-🔍 Confidence Scoring
-1. SQL Confidence (compute_sql_confidence)
-Row volume: min(#rows / 10, 1.0)
+> Opens a browser UI for testing the system interactively.
 
-Null coverage: 1 − (null_cells / total_cells)
+---
 
-Cross-encoder score for top-6 rows
+## 🔍 Confidence Scoring Logic
 
-Weighted sum: 0.3 × volume + 0.2 × coverage + 0.5 × encoder
+### ✅ 1. SQL Confidence
 
-2. Answer Confidence (compute_answer_confidence)
-Cross-encoder similarity between question and answer
+* **Row volume**: `min(num_rows / 10, 1.0)`
+* **Null coverage**: `1 - (null_cells / total_cells)`
+* **Cross-encoder**: Similarity over top rows
 
-Penalizes overly short or lengthy answers
+```python
+sql_conf = 0.3 * volume + 0.2 * coverage + 0.5 * encoder
+```
 
-Checks if numeric tokens match
+---
 
-Final Confidence
-text
-Copy
-Edit
-confidence = 0.7 × sql_score + 0.3 × answer_score
-📖 Architecture Overview
-🧠 SQL Agent
-LangGraph-based
+### ✅ 2. Answer Confidence
 
-Nodes: list_tables → get_schema → generate → check → run
+* Cross-encoder similarity between question and answer
+* Penalizes overly short or long responses
+* Checks numeric token alignment
 
-Exposed via MCP as a tool
+---
 
-📄 RAG Agent
-Embeds PDF/CSV to ChromaDB
+### ✅ Final Score
 
-Retrieves top-k docs
+```python
+confidence = 0.7 * sql_conf + 0.3 * answer_conf
+```
 
-Synthesizes answer via LLM
+---
 
-Exposed via MCP as a tool
+## 🧠 Architecture Summary
 
-🔀 Query Router
-Step 1: Try SQL Agent → compute confidence
+### 📃 SQL Agent (LangGraph)
 
-Step 2: Fallback to RAG → compare score
+* Nodes: `list_tables → get_schema → generate → validate → run`
+* Exposed via MCP tool server
 
-Step 3: Rephrase and retry if both are low
+### 📄 RAG Agent (LangChain + Chroma)
 
-🧪 Running Tests
-bash
-Copy
-Edit
+* Embeds PDF & CSV to vector DB
+* Retrieves top-k documents
+* Synthesizes answer with LLM
+
+### 🔀 Query Router
+
+1. Try SQL tool → score
+2. Try RAG tool → score
+3. Pick highest score
+4. Rephrase + retry if both are weak
+
+---
+
+## 🧪 Running Tests
+
+Make sure `chroma_db/` and PostgreSQL are preloaded:
+
+```bash
 pytest tests/
-Make sure SQL and Chroma data are preloaded.
+```
 
-📜 License
-This project is licensed under the MIT License. See LICENSE for details.
+---
+
+## 📜 License
+
+MIT License — see `LICENSE` file for details.
